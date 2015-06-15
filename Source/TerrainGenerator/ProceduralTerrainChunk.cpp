@@ -5,6 +5,7 @@
 #include "ProceduralTerrainChunk.h"
 #include "Runtime/Launch/Resources/Version.h"
 
+
 /** Vertex Buffer */
 class FTerrainMeshVertexBuffer : public FVertexBuffer
 {
@@ -12,12 +13,8 @@ public:
 	int32 BOSize;
 	virtual void InitRHI() override
 	{
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 3
 		FRHIResourceCreateInfo CreateInfo;
-		VertexBufferRHI = RHICreateVertexBuffer(BOSize * sizeof(FDynamicMeshVertex), BUF_AnyDynamic, CreateInfo);
-#else
-		VertexBufferRHI = RHICreateVertexBuffer(BOSize * sizeof(FDynamicMeshVertex), NULL, BUF_AnyDynamic);
-#endif
+		VertexBufferRHI = RHICreateVertexBuffer(BOSize * sizeof(FDynamicMeshVertex), BUF_Static, CreateInfo);
 	}
 
 	void AddElements(TArray<FDynamicMeshVertex> &Elements)
@@ -36,12 +33,8 @@ public:
 	int32 BOSize;
 	virtual void InitRHI() override
 	{
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 3
 		FRHIResourceCreateInfo CreateInfo;
-		IndexBufferRHI = RHICreateIndexBuffer(sizeof(int32), BOSize * sizeof(int32), BUF_AnyDynamic, CreateInfo);
-#else
-		IndexBufferRHI = RHICreateIndexBuffer(sizeof(int32), BOSize * sizeof(int32), NULL, BUF_AnyDynamic);
-#endif
+		IndexBufferRHI = RHICreateIndexBuffer(sizeof(int32), BOSize * sizeof(int32), BUF_Static, CreateInfo);
 	}
 
 	void AddElements(TArray<int32> &Elements)
@@ -67,6 +60,7 @@ public:
 	{
 		// Commented out to enable building light of a level (but no backing is done for the procedural mesh itself)
 		//check(!IsInRenderingThread());
+
 		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			InitTerrainMeshVertexFactory,
 			FTerrainMeshVertexFactory*, VertexFactory, this,
@@ -96,12 +90,9 @@ class FProceduralTerrainChunkSceneProxy : public FPrimitiveSceneProxy
 	UProceduralTerrainChunk* ProceduralTerrainChunk;
 public:
 	FProceduralTerrainChunkSceneProxy(UProceduralTerrainChunk* Component)
-		: FPrimitiveSceneProxy(Component),
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 5
-		 MaterialRelevance(Component->GetMaterialRelevance(GetScene().GetFeatureLevel()))
-#else
-		 MaterialRelevance(Component->GetMaterialRelevance())
-#endif
+		: FPrimitiveSceneProxy(Component)
+		, MaterialRelevance(Component->GetMaterialRelevance(GetScene().GetFeatureLevel()))
+
 	{
 		ProceduralTerrainChunk = Component;
 		VertexBuffer.BOSize = Component->Vertices.Num();
@@ -151,7 +142,7 @@ public:
 		}
 	}
 
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 5
+
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_ProceduralTerrainChunkSceneProxy_GetDynamicMeshElements);
@@ -161,15 +152,10 @@ public:
 			FLinearColor(0, 0.5f, 1.f)
 			);
 		Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
-		FMaterialRenderProxy* MaterialProxy = NULL;
-		if (bWireframe)
-		{
-			MaterialProxy = WireframeMaterialInstance;
-		}
-		else
-		{
-			MaterialProxy = Material->GetRenderProxy(IsSelected());
-		}
+
+		FMaterialRenderProxy* MaterialProxy = bWireframe ? WireframeMaterialInstance : Material->GetRenderProxy(IsSelected());
+
+
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
 			if (VisibilityMap & (1 << ViewIndex))
@@ -196,47 +182,7 @@ public:
 			}
 		}
 	}
-#endif
-	virtual void DrawDynamicElements(FPrimitiveDrawInterface* PDI, const FSceneView* View)
-	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_TerrainMeshSceneProxy_DrawDynamicElements);
-		const bool bWireframe = AllowDebugViewmodes() && View->Family->EngineShowFlags.Wireframe;
-		FColoredMaterialRenderProxy WireframeMaterialInstance(
-			GEngine->WireframeMaterial ? GEngine->WireframeMaterial->GetRenderProxy(IsSelected()) : NULL,
-			FLinearColor(0, 0.5f, 1.f)
-			);
-		FMaterialRenderProxy* MaterialProxy = NULL;
-		if (bWireframe)
-		{
-			MaterialProxy = &WireframeMaterialInstance;
-		}
-		else
-		{
-			MaterialProxy = Material->GetRenderProxy(IsSelected());
-		}
-		// Draw the mesh.
-		FMeshBatch Mesh;
-		FMeshBatchElement& BatchElement = Mesh.Elements[0];
-		BatchElement.IndexBuffer = &IndexBuffer;
-		Mesh.bWireframe = bWireframe;
-		Mesh.VertexFactory = &VertexFactory;
-		Mesh.MaterialRenderProxy = MaterialProxy;
-#if ENGINE_MAJOR_VERSION >= 4 && ENGINE_MINOR_VERSION >= 5
-		BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), true, UseEditorDepthTest());
-#else
-		BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), true);
-#endif
-		BatchElement.FirstIndex = 0;
-		BatchElement.NumPrimitives = IndexBuffer.BOSize / 3;
-		BatchElement.MinVertexIndex = 0;
-		BatchElement.MaxVertexIndex = VertexBuffer.BOSize - 1;
-		Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative();
-		//Mesh.ReverseCulling = false;
-		Mesh.Type = PT_TriangleList;
-		Mesh.CastShadow = true;
-		Mesh.DepthPriorityGroup = SDPG_World;
-		PDI->DrawMesh(Mesh);
-	}
+
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
 	{
 		FPrimitiveViewRelevance Result;
@@ -353,32 +299,51 @@ bool UProceduralTerrainChunk::ContainsPhysicsTriMeshData(bool InUseAllTriData) c
 	return (Vertices.Num() > 0);
 }
 
-
 void UProceduralTerrainChunk::UpdateBodySetup()
 {
 	if (ModelBodySetup == NULL)
 	{
-		ModelBodySetup = ConstructObject<UBodySetup>(UBodySetup::StaticClass(), this);
+		ModelBodySetup = NewObject<UBodySetup>(this);
+		ModelBodySetup->BodySetupGuid = FGuid::NewGuid();
+
 		ModelBodySetup->CollisionTraceFlag = CTF_UseComplexAsSimple;
-		ModelBodySetup->bMeshCollideAll = true;
+		ModelBodySetup->bGenerateMirroredCollision = false;
+		ModelBodySetup->bDoubleSidedGeometry = true;
 	}
 }
 
-
 void UProceduralTerrainChunk::UpdateCollision()
 {
-	IsCollisionEnabled = true;
+
+
+	bool bCreatePhysState = false; // Should we create physics state at the end of this function?
+
+	// If its created, shut it down now
 	if (bPhysicsStateCreated)
 	{
-
 		DestroyPhysicsState();
-		UpdateBodySetup();
-		
-		// Works in Packaged build only since UE4.5:
-		ModelBodySetup->InvalidatePhysicsData();
-		ModelBodySetup->CreatePhysicsMeshes();
+		bCreatePhysState = true;
+
+	}
+
+	// Ensure we have a BodySetup
+	UpdateBodySetup();
+
+#if WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR
+	// Clear current mesh data
+	ModelBodySetup->InvalidatePhysicsData();
+	// Create new mesh data
+	ModelBodySetup->CreatePhysicsMeshes();
+
+#endif // WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR
+
+	// Create new instance state if desired
+	if (bCreatePhysState)
+	{
 		CreatePhysicsState();
 	}
+
+	IsCollisionEnabled = true;
 }
 
 void UProceduralTerrainChunk::RemoveCollision()

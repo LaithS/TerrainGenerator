@@ -151,7 +151,7 @@ UProceduralTerrainChunk * AProceduralTerrain::CreateProceduralTerrainChunk()
 	name.AppendString(ComponentName);
 
 	// Create our TerrainMeshComponent 
-	UProceduralTerrainChunk *TerrainChunk = ConstructObject<UProceduralTerrainChunk>(UProceduralTerrainChunk::StaticClass(), this, name);
+	UProceduralTerrainChunk *TerrainChunk = NewObject<UProceduralTerrainChunk>(this, name);
 	TerrainChunk->RegisterComponent();
 
 	// Apply a material if we have any
@@ -241,7 +241,7 @@ void AProceduralTerrain::Tick(float fDeltaTime)
 		TerrainChunk->Positions = FinishedTask.Positions;
 		TerrainChunk->Indices = FinishedTask.Indices;
 		TerrainChunk->IsUpdating = false;
-
+		UE_LOG(LogTemp, Log, TEXT("Vertices[%d,%d,%d]: %d"), FinishedTask.ChunkIdentifier.X, FinishedTask.ChunkIdentifier.Y, FinishedTask.ChunkIdentifier.Z, TerrainChunk->Vertices.Num());
 		TerrainChunk->UpdateVertexData();
 		TerrainChunk->UpdateCollision();
 	}

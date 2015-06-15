@@ -92,6 +92,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Procedural Terrain")
 	float GetDefaultIsoValue();
 	
+	//UFUNCTION(BlueprintCallable, Category = "Procedural Terrain")
+	//void OnChunkGenerated() // Todo make an implementable event when a chunk is created
 	// Required to kill the ProceduralTerrainnWorker when the game / PIE ends
 	virtual void BeginDestroy() override;
 private:
