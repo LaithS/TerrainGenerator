@@ -3,6 +3,7 @@
 #include "DynamicMeshBuilder.h"
 #include "TerrainMeshComponent.h"
 #include "Runtime/Launch/Resources/Version.h"
+#include "Runtime/Engine/Classes/PhysicsEngine/BodySetup.h"
 
 /** Vertex Buffer */
 class FTerrainMeshVertexBuffer : public FVertexBuffer
